@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORS Proxy</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>CORS Proxy для SkinRave API</h1>
+    <p>Этот файл служит прокси для обхода CORS ограничений.</p>
+    
+    <script>
+        // Простой прокси для обхода CORS
+        async function proxyRequest(url) {
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Proxy error:', error);
+                throw error;
+            }
+        }
+        
+        // Экспортируем функцию для использования в основном файле
+        window.proxyRequest = proxyRequest;
+    </script>
+</body>
+</html> 

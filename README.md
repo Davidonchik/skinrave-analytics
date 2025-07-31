@@ -12,7 +12,7 @@
 
 ## 🚀 Демо
 
-Сайт доступен по адресу: [https://your-username.github.io/skinrave-analytics](https://your-username.github.io/skinrave-analytics)
+Сайт доступен по адресу: [https://davidonchik.github.io/skinrave-analytics](https://davidonchik.github.io/skinrave-analytics)
 
 ## 📊 Функциональность
 

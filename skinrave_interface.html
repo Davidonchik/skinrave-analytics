@@ -376,12 +376,12 @@
             <!-- Заголовок -->
             <div class="card-glass rounded-2xl shadow-2xl p-6 md:p-8 text-center mb-6 animate-fade-in">
                 <h1 class="text-4xl md:text-5xl font-bold text-white mb-4 title-text">SkinRave Analytics</h1>
-                <p class="text-xl text-blue-200 mb-6">Анализатор партнеров и статистики</p>
+                <p class="text-xl text-blue-200 mb-6">Анализ реферальной статистики</p>
                 
                 <div class="flex flex-wrap justify-center gap-4">
                     <div class="stats-card rounded-lg p-4 text-center">
                         <div class="text-2xl font-bold text-white" id="totalPartners">0</div>
-                        <div class="text-sm text-blue-200">Всего партнеров</div>
+                        <div class="text-sm text-blue-200">Всего рефералов</div>
                     </div>
                     <div class="stats-card rounded-lg p-4 text-center">
                         <div class="text-2xl font-bold text-white" id="activePartners">0</div>
@@ -565,23 +565,21 @@
                 document.getElementById('apiToken').value = this.apiToken;
                 localStorage.setItem('skinrave_api_token', this.apiToken);
                 
-                // Извлекаем даты из URL или устанавливаем актуальные
-                let startDate, endDate;
+                // Дата начала всегда 31.07.2025 10:00
+                const startDate = '2025-07-31T10:00';
                 
-                const fromParam = urlParams.get('from');
+                // Извлекаем дату окончания из URL или устанавливаем актуальную
+                let endDate;
                 const toParam = urlParams.get('to');
                 
-                if (fromParam && toParam) {
-                    // Если даты есть в URL, используем их
-                    const fromDate = new Date(fromParam);
+                if (toParam) {
+                    // Если дата окончания есть в URL, используем её
                     const toDate = new Date(toParam);
-                    startDate = fromDate.toISOString().slice(0, 16);
                     endDate = toDate.toISOString().slice(0, 16);
                 } else {
-                    // Если дат нет в URL, устанавливаем актуальную (текущую неделю)
+                    // Если даты нет в URL, устанавливаем актуальную (текущую неделю)
                     const now = new Date();
                     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                    startDate = weekAgo.toISOString().slice(0, 16);
                     endDate = now.toISOString().slice(0, 16);
                 }
                 

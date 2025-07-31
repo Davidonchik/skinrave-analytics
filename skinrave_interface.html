@@ -566,27 +566,23 @@
                 localStorage.setItem('skinrave_api_token', this.apiToken);
                 
                 // Извлекаем даты из URL или устанавливаем актуальные
-                let startDate = '2025-07-24T12:59';
-                let endDate = '2025-07-31T12:59';
+                let startDate, endDate;
                 
                 const fromParam = urlParams.get('from');
                 const toParam = urlParams.get('to');
                 
-                if (fromParam) {
-                    // Конвертируем ISO дату в формат для input datetime-local
+                if (fromParam && toParam) {
+                    // Если даты есть в URL, используем их
                     const fromDate = new Date(fromParam);
+                    const toDate = new Date(toParam);
                     startDate = fromDate.toISOString().slice(0, 16);
+                    endDate = toDate.toISOString().slice(0, 16);
                 } else {
-                    // Если даты нет в URL, устанавливаем актуальную (текущую неделю)
+                    // Если дат нет в URL, устанавливаем актуальную (текущую неделю)
                     const now = new Date();
                     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
                     startDate = weekAgo.toISOString().slice(0, 16);
                     endDate = now.toISOString().slice(0, 16);
-                }
-                
-                if (toParam) {
-                    const toDate = new Date(toParam);
-                    endDate = toDate.toISOString().slice(0, 16);
                 }
                 
                 document.getElementById('startDate').value = startDate;
@@ -658,6 +654,22 @@
                     this.showNotification('Ошибка загрузки данных. Попробуйте позже.', 'error');
                 } finally {
                     this.showLoading(false);
+                }
+            }
+
+            showLoading(isLoading) {
+                this.updateLoadButton(isLoading);
+            }
+
+            displayData(data) {
+                if (data && data.list) {
+                    this.partners = data.list;
+                    this.updatePartnersList();
+                    this.updateStats(data);
+                } else {
+                    this.partners = [];
+                    this.updatePartnersList();
+                    this.showNotification('Нет данных для отображения', 'error');
                 }
             }
 

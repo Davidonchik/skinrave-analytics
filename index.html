@@ -619,6 +619,7 @@
             async loadData() {
                 try {
                     this.showLoading(true);
+                    this.isLoading = true; // Флаг для возможности отмены
                     
                     const desiredLimit = parseInt(document.getElementById('resultsLimit').value) || 1000;
                     const fromDate = document.getElementById('startDate').value + ':00.000Z';
@@ -676,14 +677,15 @@
                             skip += take;
                             console.log(`Осталось аккаунтов: ${remainingAccounts}. Делаем паузу 1 секунду...`);
                             
-                            // Показываем прогресс пользователю
-                            this.showNotification(`Загружено ${allPartners.length} из ${Math.min(totalCount, desiredLimit)} аккаунтов...`, 'info');
+                            // Показываем прогресс пользователю с процентами
+                            const progress = Math.round((allPartners.length / Math.min(totalCount, desiredLimit)) * 100);
+                            this.showNotification(`Загружено ${allPartners.length} из ${Math.min(totalCount, desiredLimit)} аккаунтов (${progress}%)...`, 'info');
                             
-                            // Пауза 1 секунда между запросами
-                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            // Пауза 500ms между запросами (уменьшено для ускорения)
+                            await new Promise(resolve => setTimeout(resolve, 500));
                         }
                         
-                    } while (allPartners.length < totalCount && allPartners.length < desiredLimit);
+                    } while (allPartners.length < totalCount && allPartners.length < desiredLimit && this.isLoading);
                     
                     console.log(`Загрузка завершена. Всего загружено: ${allPartners.length} аккаунтов`);
                     
@@ -701,6 +703,7 @@
                     this.showNotification('Ошибка загрузки данных. Попробуйте позже.', 'error');
                 } finally {
                     this.showLoading(false);
+                    this.isLoading = false;
                 }
             }
 
@@ -724,11 +727,20 @@
                 const loadBtn = document.getElementById('loadDataBtn');
                 
                 if (isLoading) {
-                    loadBtn.disabled = true;
+                    loadBtn.disabled = false;
                     loadBtn.innerHTML = `
-                        <div class="loading-spinner mr-2"></div>
-                        Загрузка...
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-x-circle mr-2" viewBox="0 0 16 16">
+                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                            <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                        </svg>
+                        Отменить загрузку
                     `;
+                    loadBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                    loadBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+                    loadBtn.onclick = () => {
+                        this.isLoading = false;
+                        this.showNotification('Загрузка отменена пользователем', 'warning');
+                    };
                 } else {
                     loadBtn.disabled = false;
                     loadBtn.innerHTML = `
@@ -738,6 +750,9 @@
                         </svg>
                         Загрузить данные
                     `;
+                    loadBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+                    loadBtn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                    loadBtn.onclick = () => this.loadData();
                 }
             }
 

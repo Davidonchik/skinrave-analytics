@@ -550,7 +550,7 @@
             constructor() {
                 this.partners = [];
                 this.apiToken = '6d7e6932-b0de-4df2-b523-f778ffb9b958'; // Automatically sets the token
-                this.baseUrl = 'https://api.allorigins.win/raw?url=https://api.skinrave.gg/affiliates/public/applicants';
+                this.baseUrl = 'https://api.skinrave.gg/affiliates/public/applicants';
                 
                 this.initializeUI();
                 this.bindEvents();
@@ -638,15 +638,13 @@
                         requestCount++;
                         console.log(`Запрос #${requestCount}: skip=${skip}, take=${take}`);
                         
-                        const apiUrl = `https://api.skinrave.gg/affiliates/public/applicants?token=${this.apiToken}&skip=${skip}&take=${take}&order=DESC&from=${fromDate}&to=${toDate}`;
-                        const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
+                        const url = `https://api.skinrave.gg/affiliates/public/applicants?token=${this.apiToken}&skip=${skip}&take=${take}&order=DESC&from=${fromDate}&to=${toDate}`;
                         
                         const response = await fetch(url, {
                             method: 'GET',
                             headers: {
                                 'Accept': 'application/json',
-                                'Content-Type': 'application/json',
-                                'Origin': window.location.origin
+                                'Content-Type': 'application/json'
                             }
                         });
                         

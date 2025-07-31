@@ -1,0 +1,5 @@
+[33med44110[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Исправлена проблема с CORS ошибками - добавлены множественные прокси и подавление ошибок в консоли
+[33m720746e[m Add CORS proxy to fix API requests
+[33m2f4475e[m Update README with correct URL
+[33m948e373[m Add index.html for GitHub Pages
+[33m1e8ceee[m Initial commit: SkinRave Analytics interface

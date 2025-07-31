@@ -311,7 +311,7 @@
                     <!-- Results Limit -->
                     <div class="space-y-2">
                         <label class="text-sm font-semibold text-blue-200">Лимит результатов</label>
-                        <input type="number" id="resultsLimit" value="10" min="1" max="100"
+                        <input type="number" id="resultsLimit" value="1000" min="1" max="10000"
                                class="input-field w-full px-4 py-3 rounded-lg text-sm">
                     </div>
                 </div>
@@ -429,9 +429,8 @@
             constructor() {
                 this.partners = [];
                 this.apiToken = '6d7e6932-b0de-4df2-b523-f778ffb9b58'; // Automatically sets the token
-                this.baseUrl = 'https://cors-anywhere.herokuapp.com/https://api.skinrave.gg/affiliates/public/applicants';
-                this.notifications = [];
-                this.suppressCorsErrors();
+                this.baseUrl = 'https://api.allorigins.win/raw?url=https://api.skinrave.gg/affiliates/public/applicants';
+                
                 this.initializeUI();
                 this.bindEvents();
                 this.loadSettings();
@@ -473,104 +472,48 @@
                 if (savedLimit) document.getElementById('resultsLimit').value = savedLimit;
             }
 
-            suppressCorsErrors() {
-                // Перехватываем и подавляем CORS ошибки в консоли
-                const originalConsoleError = console.error;
-                console.error = function(...args) {
-                    const message = args.join(' ');
-                    if (message.includes('CORS') || message.includes('cors') || message.includes('Access to fetch')) {
-                        // Подавляем CORS ошибки
-                        console.log('CORS ограничение обработано через прокси');
-                        return;
-                    }
-                    originalConsoleError.apply(console, args);
-                };
 
-                // Также перехватываем ошибки fetch
-                const originalFetch = window.fetch;
-                window.fetch = function(...args) {
-                    return originalFetch.apply(this, args).catch(error => {
-                        if (error.message.includes('CORS') || error.message.includes('cors')) {
-                            console.log('CORS ограничение обработано через прокси');
-                            // Возвращаем пустой ответ вместо ошибки
-                            return new Response(JSON.stringify({ error: 'CORS handled by proxy' }), {
-                                status: 200,
-                                headers: { 'Content-Type': 'application/json' }
-                            });
+
+            async loadData() {
+                try {
+                    this.showLoading(true);
+                    
+                    const limit = parseInt(document.getElementById('resultsLimit').value) || 1000;
+                    const fromDate = document.getElementById('startDate').value + ':00.000Z';
+                    const toDate = document.getElementById('endDate').value + ':00.000Z';
+                    
+                    const apiUrl = `https://api.skinrave.gg/affiliates/public/applicants?token=${this.apiToken}&skip=0&take=${limit}&order=DESC&from=${fromDate}&to=${toDate}`;
+                    const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
+                    
+                    console.log('Загружаем данные с:', url);
+                    
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'Origin': window.location.origin
                         }
-                        throw error;
                     });
-                };
-            }
-
-                    async loadData() {
-            try {
-                this.showLoading(true);
-                
-                const limit = parseInt(document.getElementById('resultsLimit').value) || 10;
-                const fromDate = document.getElementById('startDate').value + ':00.000Z';
-                const toDate = document.getElementById('endDate').value + ':00.000Z';
-                
-                const apiUrl = `https://api.skinrave.gg/affiliates/public/applicants?token=${this.apiToken}&skip=0&take=${limit}&order=DESC&from=${fromDate}&to=${toDate}`;
-                
-                // Пробуем разные прокси серверы
-                const proxies = [
-                    `https://cors-anywhere.herokuapp.com/${apiUrl}`,
-                    `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
-                    `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`
-                ];
-                
-                let data = null;
-                let lastError = null;
-                
-                for (const proxyUrl of proxies) {
-                    try {
-                        console.log('Пробуем прокси:', proxyUrl);
-                        
-                        const response = await fetch(proxyUrl, {
-                            method: 'GET',
-                            headers: {
-                                'Accept': 'application/json',
-                                'Content-Type': 'application/json'
-                            }
-                        });
-                        
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        
-                        data = await response.json();
-                        console.log('Данные получены через прокси:', proxyUrl);
-                        break;
-                        
-                    } catch (error) {
-                        console.log('Прокси не сработал:', proxyUrl, error.message);
-                        lastError = error;
-                        continue;
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                }
-                
-                if (data) {
+                    
+                    const data = await response.json();
+                    console.log('Получены данные:', data);
+                    
                     this.displayData(data);
                     this.updateStats(data);
                     this.showNotification('Данные успешно загружены!', 'success');
-                } else {
-                    throw lastError || new Error('Все прокси серверы недоступны');
+                    
+                } catch (error) {
+                    console.error('Ошибка загрузки данных:', error);
+                    this.showNotification('Ошибка загрузки данных. Попробуйте позже.', 'error');
+                } finally {
+                    this.showLoading(false);
                 }
-                
-            } catch (error) {
-                console.error('Ошибка загрузки данных:', error);
-                
-                // Подавляем CORS ошибки в консоли
-                if (error.message.includes('CORS') || error.message.includes('cors')) {
-                    console.log('CORS ограничение обработано через прокси');
-                }
-                
-                this.showNotification('Ошибка загрузки данных. Попробуйте позже.', 'error');
-            } finally {
-                this.showLoading(false);
             }
-        }
 
             updateLoadButton(isLoading) {
                 const loadBtn = document.getElementById('loadDataBtn');

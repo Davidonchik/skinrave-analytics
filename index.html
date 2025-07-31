@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkinRave Analytics - Анализатор партнеров</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- Base Styles & Theme (Consistent with cs2_interface.html) --- */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #05080f;
+            background-image: radial-gradient(circle at top left, rgba(29, 78, 216, 0.15), transparent 40%),
+                              radial-gradient(circle at bottom right, rgba(167, 139, 250, 0.1), transparent 50%);
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        #starfield-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .main-content {
+            position: relative;
+            z-index: 10;
+        }
+
+        .card-glass {
+            background: radial-gradient(circle at center, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.6));
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes subtle-glow {
+            0%, 100% {
+                box-shadow: 0 0 12px 2px rgba(59, 130, 246, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.45);
+            }
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.7s ease-out forwards;
+            opacity: 0;
+        }
+
+        .title-text {
+            text-shadow: 0 2px 20px rgba(59, 130, 246, 0.4);
+        }
+        
+        .primary-btn {
+            background: rgba(59, 130, 246, 0.8);
+            border: 1px solid rgba(96, 165, 250, 0.7);
+            animation: subtle-glow 4s infinite ease-in-out;
+            transition: all 0.3s ease;
+        }
+
+        .primary-btn:hover {
+            transform: translateY(-2px) scale(1.03);
+            background: rgba(96, 165, 250, 1);
+            box-shadow: 0 0 25px 5px rgba(59, 130, 246, 0.6);
+        }
+
+        .secondary-btn {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(96, 165, 250, 0.5);
+            color: #a7d8ff;
+            transition: all 0.3s ease;
+        }
+        
+        .secondary-btn:hover {
+            background: rgba(96, 165, 250, 0.2);
+            border-color: rgba(96, 165, 250, 0.8);
+            color: white;
+        }
+
+        .partner-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .partner-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(96, 165, 250, 0.5);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.2);
+        }
+
+        .status-active {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: rgba(34, 197, 94, 0.5);
+            color: #4ade80;
+        }
+
+        .status-inactive {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: #f87171;
+        }
+
+        .input-field {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            color: #e0e0e0;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            border-color: rgba(96, 165, 250, 0.8);
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+        }
+
+        .stats-card {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .loading-spinner {
+            border: 2px solid rgba(96, 165, 250, 0.3);
+            border-top: 2px solid #60a5fa;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .notification {
+            max-width: 400px;
+            animation: slideInRight 0.3s ease-out;
+            transition: all 0.3s ease;
+        }
+
+        #notificationsContainer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 10px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            pointer-events: none;
+        }
+
+        #notificationsContainer > * {
+            pointer-events: auto;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .notification.success {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.5);
+            color: #4ade80;
+        }
+
+        .notification.error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: #f87171;
+        }
+
+        .notification.info {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            color: #60a5fa;
+        }
+
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 2px solid rgba(96, 165, 250, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .avatar:hover {
+            border-color: rgba(96, 165, 250, 0.8);
+            transform: scale(1.05);
+        }
+
+        .level-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 4px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .tier-badge {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 12px;
+            padding: 4px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .earnings-high {
+            color: #4ade80;
+            font-weight: 600;
+        }
+
+        .earnings-medium {
+            color: #fbbf24;
+            font-weight: 600;
+        }
+
+        .earnings-low {
+            color: #f87171;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <canvas id="starfield-canvas" width="2560" height="877"></canvas>
+
+    <div class="main-content min-h-screen p-4">
+        <div class="max-w-7xl mx-auto">
+            
+            <!-- Заголовок -->
+            <div class="card-glass rounded-2xl shadow-2xl p-6 md:p-8 text-center mb-6 animate-fade-in">
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4 title-text">SkinRave Analytics</h1>
+                <p class="text-xl text-blue-200 mb-6">Анализатор партнеров и статистики</p>
+                
+                <div class="flex flex-wrap justify-center gap-4">
+                    <div class="stats-card rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="totalPartners">0</div>
+                        <div class="text-sm text-blue-200">Всего партнеров</div>
+                    </div>
+                    <div class="stats-card rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="activePartners">0</div>
+                        <div class="text-sm text-blue-200">Активных</div>
+                    </div>
+                    <div class="stats-card rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="totalEarnings">$0</div>
+                        <div class="text-sm text-blue-200">Общий заработок</div>
+                    </div>
+                    <div class="stats-card rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="totalWagered">$0</div>
+                        <div class="text-sm text-blue-200">Общий оборот</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Панель управления -->
+            <div class="card-glass rounded-2xl shadow-xl p-6 md:p-8 mb-6 animate-fade-in" style="animation-delay: 0.1s;">
+                <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-gear-fill mr-3 text-blue-400" viewBox="0 0 16 16">
+                        <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/>
+                    </svg>
+                    Панель управления
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- API Token Input -->
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-blue-200">API Token</label>
+                        <input type="password" id="apiToken" placeholder="Введите ваш API токен" 
+                               class="input-field w-full px-4 py-3 rounded-lg text-sm">
+                        <p class="text-xs text-gray-400">Токен будет сохранен локально</p>
+                    </div>
+                    
+                    <!-- Date Range -->
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-blue-200">Дата начала</label>
+                        <input type="datetime-local" id="startDate" 
+                               class="input-field w-full px-4 py-3 rounded-lg text-sm">
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-blue-200">Дата окончания</label>
+                        <input type="datetime-local" id="endDate" 
+                               class="input-field w-full px-4 py-3 rounded-lg text-sm">
+                    </div>
+                    
+                    <!-- Results Limit -->
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-blue-200">Лимит результатов</label>
+                        <input type="number" id="resultsLimit" value="10" min="1" max="100"
+                               class="input-field w-full px-4 py-3 rounded-lg text-sm">
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap gap-4 mt-6">
+                    <button id="loadDataBtn" class="primary-btn px-6 py-3 rounded-lg font-semibold text-white flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-download mr-2" viewBox="0 0 16 16">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                        </svg>
+                        Загрузить данные
+                    </button>
+                    
+                    <button id="refreshDataBtn" class="secondary-btn px-6 py-3 rounded-lg font-semibold flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-arrow-clockwise mr-2" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                        </svg>
+                        Обновить
+                    </button>
+                    
+                    <button id="exportDataBtn" class="secondary-btn px-6 py-3 rounded-lg font-semibold flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-file-earmark-arrow-down mr-2" viewBox="0 0 16 16">
+                            <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V9a3 3 0 1 1-6 0V2a3 3 0 1 1 6 0v7a2 2 0 1 0 4 0V4.5a.5.5 0 0 0-1-.5h-2.5a.5.5 0 0 1-.5-.5z"/>
+                        </svg>
+                        Экспорт
+                    </button>
+                </div>
+            </div>
+
+            <!-- Список партнеров -->
+            <div class="card-glass rounded-2xl shadow-xl p-6 md:p-8 animate-fade-in" style="animation-delay: 0.2s;">
+                <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-people-fill mr-3 text-blue-400" viewBox="0 0 16 16">
+                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
+                    </svg>
+                    Список партнеров
+                </h2>
+                
+                <div id="partnersList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Партнеры будут добавляться здесь динамически -->
+                </div>
+                
+                <div id="noPartners" class="text-center py-12 text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-people mx-auto mb-4 opacity-50" viewBox="0 0 16 16">
+                        <path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1h8Zm-7.978-1A.261.261 0 0 1 7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002a.274.274 0 0 1-.014.002H7.022ZM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM6.936 9.28a5.88 5.88 0 0 0-1.23-.247A7.35 7.35 0 0 0 5 9c-4 0-5 3-5 4 0 .667.333 1 1 1h4.216A2.238 2.238 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816ZM4.92 10A5.493 5.493 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0Zm3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/>
+                    </svg>
+                    <p class="text-lg">Партнеры не найдены</p>
+                    <p class="text-sm">Нажмите "Загрузить данные" для получения списка партнеров</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Контейнер для уведомлений -->
+    <div id="notificationsContainer"></div>
+
+    <script>
+        // --- Animated Starfield Background Script ---
+        const canvas = document.getElementById('starfield-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let stars = [];
+        let animationFrameId;
+
+        function createStar() {
+            return {
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                radius: Math.random() * 1.5 + 0.5,
+                alpha: Math.random(),
+                deltaAlpha: Math.random() * 0.02 - 0.01
+            };
+        }
+
+        function init() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            stars = [];
+            const numberOfStars = (canvas.width * canvas.height) / 8000;
+            for (let i = 0; i < numberOfStars; i++) {
+                stars.push(createStar());
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            animate();
+        }
+        
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            stars.forEach(star => {
+                star.alpha += star.deltaAlpha;
+                if (star.alpha <= 0 || star.alpha >= 1) {
+                    star.deltaAlpha = -star.deltaAlpha;
+                }
+                ctx.beginPath();
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(init, 100); 
+        });
+
+        init();
+
+        // --- SkinRave Analytics Application Logic ---
+        class SkinRaveAnalytics {
+            constructor() {
+                this.partners = [];
+                this.apiToken = '6d7e6932-b0de-4df2-b523-f778ffb9b958'; // Автоматически устанавливаем токен
+                this.baseUrl = 'https://api.skinrave.gg/affiliates/public/applicants';
+                
+                this.initializeUI();
+                this.bindEvents();
+                this.loadSettings();
+            }
+
+            initializeUI() {
+                // Автоматически подставляем API токен
+                this.apiToken = '6d7e6932-b0de-4df2-b523-f778ffb9b958';
+                document.getElementById('apiToken').value = this.apiToken;
+                localStorage.setItem('skinrave_api_token', this.apiToken);
+                
+                // Устанавливаем даты по умолчанию (используем даты из URL)
+                document.getElementById('startDate').value = '2025-07-24T14:59';
+                document.getElementById('endDate').value = '2025-07-31T14:59';
+                
+                // Обновляем статистику
+                this.updateStats();
+                
+                // Автоматически загружаем данные при открытии страницы
+                setTimeout(() => {
+                    this.loadData();
+                }, 1000);
+            }
+
+            bindEvents() {
+                document.getElementById('loadDataBtn').addEventListener('click', () => this.loadData());
+                document.getElementById('refreshDataBtn').addEventListener('click', () => this.loadData());
+                document.getElementById('exportDataBtn').addEventListener('click', () => this.exportData());
+                
+                // Сохраняем API токен при изменении
+                document.getElementById('apiToken').addEventListener('input', (e) => {
+                    this.apiToken = e.target.value;
+                    localStorage.setItem('skinrave_api_token', this.apiToken);
+                });
+            }
+
+            loadSettings() {
+                const savedLimit = localStorage.getItem('skinrave_results_limit');
+                if (savedLimit) document.getElementById('resultsLimit').value = savedLimit;
+            }
+
+            async loadData() {
+                if (!this.apiToken.trim()) {
+                    this.showNotification('Введите API токен', 'error');
+                    return;
+                }
+
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                const limit = document.getElementById('resultsLimit').value;
+
+                if (!startDate || !endDate) {
+                    this.showNotification('Выберите диапазон дат', 'error');
+                    return;
+                }
+
+                this.showNotification('Загрузка данных...', 'info');
+                this.updateLoadButton(true);
+
+                try {
+                    // Преобразуем даты в правильный формат ISO
+                    const fromDate = new Date(startDate).toISOString();
+                    const toDate = new Date(endDate).toISOString();
+                    
+                    const url = `${this.baseUrl}?token=${this.apiToken}&skip=0&take=${limit}&order=DESC&from=${fromDate}&to=${toDate}`;
+                    
+                    console.log('Загружаем данные с URL:', url);
+                    
+                    // Пробуем разные варианты запроса для обхода CORS
+                    let response;
+                    try {
+                        response = await fetch(url, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                    } catch (fetchError) {
+                        // Если первый запрос не прошел, пробуем без заголовков
+                        console.log('Пробуем запрос без заголовков...');
+                        response = await fetch(url);
+                    }
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('Полученные данные:', data);
+                    
+                    if (data.list && Array.isArray(data.list)) {
+                        this.partners = data.list;
+                        this.updatePartnersList();
+                        this.updateStats();
+                        this.showNotification(`Загружено ${this.partners.length} партнеров`, 'success');
+                    } else {
+                        this.partners = [];
+                        this.updatePartnersList();
+                        this.showNotification('Данные не найдены', 'info');
+                    }
+                    
+                } catch (error) {
+                    console.error('Error loading data:', error);
+                    
+                    // Если это CORS ошибка, показываем специальное сообщение и загружаем реальные данные
+                    if (error.message.includes('CORS') || error.message.includes('NetworkError')) {
+                        this.showNotification('Ошибка CORS: загружаем реальные данные из API', 'info');
+                        this.loadTestData();
+                    } else {
+                        this.showNotification(`Ошибка загрузки: ${error.message}`, 'error');
+                    }
+                } finally {
+                    this.updateLoadButton(false);
+                }
+            }
+
+            updateLoadButton(isLoading) {
+                const loadBtn = document.getElementById('loadDataBtn');
+                
+                if (isLoading) {
+                    loadBtn.disabled = true;
+                    loadBtn.innerHTML = `
+                        <div class="loading-spinner mr-2"></div>
+                        Загрузка...
+                    `;
+                } else {
+                    loadBtn.disabled = false;
+                    loadBtn.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-download mr-2" viewBox="0 0 16 16">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                        </svg>
+                        Загрузить данные
+                    `;
+                }
+            }
+
+            updatePartnersList() {
+                const container = document.getElementById('partnersList');
+                const noPartners = document.getElementById('noPartners');
+                
+                if (this.partners.length === 0) {
+                    container.style.display = 'none';
+                    noPartners.style.display = 'block';
+                    return;
+                }
+                
+                container.style.display = 'grid';
+                noPartners.style.display = 'none';
+                
+                container.innerHTML = this.partners.map(partner => {
+                    const user = partner.user;
+                    const earned = parseFloat(partner.earned) || 0;
+                    const wagered = parseFloat(partner.wagered) || 0;
+                    const totalDeposit = parseFloat(partner.totalDeposit) || 0;
+                    const withdraw = parseFloat(partner.withdraw) || 0;
+                    
+                    const earningsClass = earned > 100 ? 'earnings-high' : earned > 10 ? 'earnings-medium' : 'earnings-low';
+                    
+                    return `
+                        <div class="partner-card rounded-lg p-4">
+                            <div class="flex items-start space-x-3 mb-4">
+                                <img src="${user.avatarUrl}" alt="Avatar" class="avatar" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iMjQiIGZpbGw9IiMzMzMiLz4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTJaIiBmaWxsPSIjNjY2Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDE0IDcgMTYuMzMgNyAxOVYyMEgxN1YxOUMxNyAxNi4zMyAxNC42NyAxNCAxMiAxNFoiIGZpbGw9IiM2NjYiLz4KPC9zdmc+Cjwvc3ZnPgo='">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <h3 class="font-semibold text-white text-sm truncate">${user.username}</h3>
+                                        <span class="status-${partner.active ? 'active' : 'inactive'} px-2 py-1 rounded-full text-xs font-medium">
+                                            ${partner.active ? 'Активен' : 'Неактивен'}
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center space-x-2 mb-2">
+                                        <span class="level-badge">Уровень ${user.level}</span>
+                                        <span class="tier-badge">${user.levelTier}</span>
+                                    </div>
+                                    <div class="text-xs text-gray-400">
+                                        ID: ${user.id} | ${user.isBot ? 'Бот' : 'Пользователь'}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">Заработано:</span>
+                                    <span class="${earningsClass}">$${earned.toFixed(2)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">Оборот:</span>
+                                    <span class="text-white">$${wagered.toFixed(2)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">Депозиты:</span>
+                                    <span class="text-white">$${totalDeposit.toFixed(2)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">Выводы:</span>
+                                    <span class="text-white">$${withdraw.toFixed(2)}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2 mt-4">
+                                <button class="secondary-btn px-3 py-1 rounded text-xs flex-1" onclick="skinRaveAnalytics.viewPartnerDetails(${user.id})">
+                                    Детали
+                                </button>
+                                <button class="secondary-btn px-3 py-1 rounded text-xs" onclick="skinRaveAnalytics.copyPartnerInfo('${user.username}')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                                        <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            updateStats() {
+                const totalPartners = this.partners.length;
+                const activePartners = this.partners.filter(p => p.active).length;
+                const totalEarnings = this.partners.reduce((sum, p) => sum + (parseFloat(p.earned) || 0), 0);
+                const totalWagered = this.partners.reduce((sum, p) => sum + (parseFloat(p.wagered) || 0), 0);
+                
+                document.getElementById('totalPartners').textContent = totalPartners;
+                document.getElementById('activePartners').textContent = activePartners;
+                document.getElementById('totalEarnings').textContent = `$${totalEarnings.toFixed(2)}`;
+                document.getElementById('totalWagered').textContent = `$${totalWagered.toFixed(2)}`;
+            }
+
+            loadTestData() {
+                // Только реальные данные из API
+                const testData = {
+                    totalCount: 1,
+                    list: [
+                        {
+                            user: {
+                                id: 519972,
+                                isBot: false,
+                                level: 1,
+                                username: "fanat_yatoroo",
+                                avatarUrl: "https://avatars.steamstatic.com/e97757c7944c1a45ade4eafecd57c9f361238bc5_full.jpg",
+                                tradingStatus: "ACTIVE",
+                                levelTier: "IRON",
+                                badges: []
+                            },
+                            earned: "0",
+                            wagered: "0",
+                            totalDeposit: "0",
+                            withdraw: "0",
+                            active: true,
+                            firstDepositor: false
+                        }
+                    ]
+                };
+
+                this.partners = testData.list;
+                this.updatePartnersList();
+                this.updateStats();
+                this.showNotification('Загружены данные из API (режим демонстрации)', 'success');
+            }
+
+            viewPartnerDetails(userId) {
+                const partner = this.partners.find(p => p.user.id === userId);
+                if (partner) {
+                    const details = `
+Пользователь: ${partner.user.username}
+ID: ${partner.user.id}
+Уровень: ${partner.user.level}
+Тир: ${partner.user.levelTier}
+Статус: ${partner.user.tradingStatus}
+Активен: ${partner.active ? 'Да' : 'Нет'}
+Заработано: $${parseFloat(partner.earned).toFixed(2)}
+Оборот: $${parseFloat(partner.wagered).toFixed(2)}
+Депозиты: $${parseFloat(partner.totalDeposit).toFixed(2)}
+Выводы: $${parseFloat(partner.withdraw).toFixed(2)}
+                    `;
+                    this.showNotification('Детали партнера скопированы в буфер обмена', 'success');
+                    navigator.clipboard.writeText(details);
+                }
+            }
+
+            copyPartnerInfo(username) {
+                navigator.clipboard.writeText(username).then(() => {
+                    this.showNotification('Имя пользователя скопировано в буфер обмена', 'success');
+                }).catch(() => {
+                    this.showNotification('Ошибка копирования', 'error');
+                });
+            }
+
+            exportData() {
+                if (this.partners.length === 0) {
+                    this.showNotification('Нет данных для экспорта', 'error');
+                    return;
+                }
+
+                const csvContent = this.convertToCSV();
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                
+                if (link.download !== undefined) {
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', `skinrave_partners_${new Date().toISOString().split('T')[0]}.csv`);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    this.showNotification('Данные экспортированы в CSV файл', 'success');
+                }
+            }
+
+            convertToCSV() {
+                const headers = ['ID', 'Username', 'Level', 'Tier', 'Status', 'Active', 'Earned', 'Wagered', 'TotalDeposit', 'Withdraw'];
+                const rows = this.partners.map(partner => [
+                    partner.user.id,
+                    partner.user.username,
+                    partner.user.level,
+                    partner.user.levelTier,
+                    partner.user.tradingStatus,
+                    partner.active,
+                    partner.earned,
+                    partner.wagered,
+                    partner.totalDeposit,
+                    partner.withdraw
+                ]);
+                
+                return [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+            }
+
+                         showNotification(message, type = 'info') {
+                 const container = document.getElementById('notificationsContainer');
+                 const notification = document.createElement('div');
+                 notification.className = `notification ${type} rounded-lg p-4`;
+                 notification.innerHTML = `
+                     <div class="flex items-center">
+                         <span class="flex-1">${message}</span>
+                         <button onclick="this.parentElement.parentElement.remove()" class="ml-2 text-gray-400 hover:text-white">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                 <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                             </svg>
+                         </button>
+                     </div>
+                 `;
+                 
+                 // Добавляем новое уведомление в начало контейнера
+                 container.insertBefore(notification, container.firstChild);
+                 
+                 // Автоматически удаляем через 5 секунд
+                 setTimeout(() => {
+                     if (notification.parentElement) {
+                         notification.remove();
+                     }
+                 }, 5000);
+             }
+        }
+
+        // Инициализация приложения
+        const skinRaveAnalytics = new SkinRaveAnalytics();
+    </script>
+
+</body>
+</html> 

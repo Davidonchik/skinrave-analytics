@@ -620,34 +620,81 @@
                 try {
                     this.showLoading(true);
                     
-                    const limit = parseInt(document.getElementById('resultsLimit').value) || 1000;
+                    const desiredLimit = parseInt(document.getElementById('resultsLimit').value) || 1000;
                     const fromDate = document.getElementById('startDate').value + ':00.000Z';
                     const toDate = document.getElementById('endDate').value + ':00.000Z';
                     
-                    const apiUrl = `https://api.skinrave.gg/affiliates/public/applicants?token=${this.apiToken}&skip=0&take=${limit}&order=DESC&from=${fromDate}&to=${toDate}`;
-                    const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
+                    // Начинаем с первого запроса для получения общего количества
+                    let allPartners = [];
+                    let skip = 0;
+                    const take = 30; // API лимит
+                    let totalCount = 0;
+                    let requestCount = 0;
                     
-                    console.log('Загружаем данные с:', url);
+                    console.log(`Начинаем загрузку данных. Желаемый лимит: ${desiredLimit}`);
                     
-                    const response = await fetch(url, {
-                        method: 'GET',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json',
-                            'Origin': window.location.origin
+                    do {
+                        requestCount++;
+                        console.log(`Запрос #${requestCount}: skip=${skip}, take=${take}`);
+                        
+                        const apiUrl = `https://api.skinrave.gg/affiliates/public/applicants?token=${this.apiToken}&skip=${skip}&take=${take}&order=DESC&from=${fromDate}&to=${toDate}`;
+                        const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
+                        
+                        const response = await fetch(url, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'Origin': window.location.origin
+                            }
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
                         }
-                    });
+                        
+                        const data = await response.json();
+                        console.log(`Запрос #${requestCount} получен:`, data);
+                        
+                        // Обновляем общее количество только при первом запросе
+                        if (requestCount === 1) {
+                            totalCount = data.totalCount || 0;
+                            console.log(`Общее количество аккаунтов: ${totalCount}`);
+                        }
+                        
+                        // Добавляем полученные данные к общему списку
+                        if (data.list && data.list.length > 0) {
+                            allPartners = allPartners.concat(data.list);
+                            console.log(`Добавлено ${data.list.length} аккаунтов. Всего: ${allPartners.length}`);
+                        }
+                        
+                        // Проверяем, нужно ли делать следующий запрос
+                        const remainingAccounts = totalCount - allPartners.length;
+                        const shouldContinue = remainingAccounts > 0 && allPartners.length < desiredLimit;
+                        
+                        if (shouldContinue) {
+                            skip += take;
+                            console.log(`Осталось аккаунтов: ${remainingAccounts}. Делаем паузу 1 секунду...`);
+                            
+                            // Показываем прогресс пользователю
+                            this.showNotification(`Загружено ${allPartners.length} из ${Math.min(totalCount, desiredLimit)} аккаунтов...`, 'info');
+                            
+                            // Пауза 1 секунда между запросами
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                        
+                    } while (allPartners.length < totalCount && allPartners.length < desiredLimit);
                     
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
+                    console.log(`Загрузка завершена. Всего загружено: ${allPartners.length} аккаунтов`);
                     
-                    const data = await response.json();
-                    console.log('Получены данные:', data);
+                    // Создаем финальный объект данных
+                    const finalData = {
+                        totalCount: totalCount,
+                        list: allPartners.slice(0, desiredLimit) // Ограничиваем желаемым лимитом
+                    };
                     
-                    this.displayData(data);
-                    this.updateStats(data);
-                    this.showNotification('Данные успешно загружены!', 'success');
+                    this.displayData(finalData);
+                    this.showNotification(`Данные успешно загружены! Загружено ${finalData.list.length} аккаунтов из ${totalCount}`, 'success');
                     
                 } catch (error) {
                     console.error('Ошибка загрузки данных:', error);

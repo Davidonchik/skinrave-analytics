@@ -428,7 +428,7 @@
         class SkinRaveAnalytics {
             constructor() {
                 this.partners = [];
-                this.apiToken = '6d7e6932-b0de-4df2-b523-f778ffb9b58'; // Automatically sets the token
+                this.apiToken = '6d7e6932-b0de-4df2-b523-f778ffb9b958'; // Automatically sets the token
                 this.baseUrl = 'https://api.allorigins.win/raw?url=https://api.skinrave.gg/affiliates/public/applicants';
                 
                 this.initializeUI();
@@ -437,14 +437,39 @@
             }
 
             initializeUI() {
-                // Автоматически подставляем API токен
-                this.apiToken = '6d7e6932-b0de-4df2-b523-f778ffb9b58';
+                // Автоматически подставляем API токен из URL или используем дефолтный
+                const urlParams = new URLSearchParams(window.location.search);
+                const tokenFromUrl = urlParams.get('token');
+                this.apiToken = tokenFromUrl || '6d7e6932-b0de-4df2-b523-f778ffb9b958';
                 document.getElementById('apiToken').value = this.apiToken;
                 localStorage.setItem('skinrave_api_token', this.apiToken);
                 
-                // Устанавливаем даты по умолчанию (используем даты из URL)
-                document.getElementById('startDate').value = '2025-07-24T14:59';
-                document.getElementById('endDate').value = '2025-07-31T14:59';
+                // Извлекаем даты из URL или устанавливаем актуальные
+                let startDate = '2025-07-24T12:59';
+                let endDate = '2025-07-31T12:59';
+                
+                const fromParam = urlParams.get('from');
+                const toParam = urlParams.get('to');
+                
+                if (fromParam) {
+                    // Конвертируем ISO дату в формат для input datetime-local
+                    const fromDate = new Date(fromParam);
+                    startDate = fromDate.toISOString().slice(0, 16);
+                } else {
+                    // Если даты нет в URL, устанавливаем актуальную (текущую неделю)
+                    const now = new Date();
+                    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    startDate = weekAgo.toISOString().slice(0, 16);
+                    endDate = now.toISOString().slice(0, 16);
+                }
+                
+                if (toParam) {
+                    const toDate = new Date(toParam);
+                    endDate = toDate.toISOString().slice(0, 16);
+                }
+                
+                document.getElementById('startDate').value = startDate;
+                document.getElementById('endDate').value = endDate;
                 
                 // Обновляем статистику
                 this.updateStats();

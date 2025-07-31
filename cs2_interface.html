@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS2 Tool - Анализатор серверов</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- Base Styles & Theme (Consistent with interface.html) --- */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #05080f;
+            background-image: radial-gradient(circle at top left, rgba(29, 78, 216, 0.15), transparent 40%),
+                              radial-gradient(circle at bottom right, rgba(167, 139, 250, 0.1), transparent 50%);
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        #starfield-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .main-content {
+            position: relative;
+            z-index: 10;
+        }
+
+        .card-glass {
+            background: radial-gradient(circle at center, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.6));
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes subtle-glow {
+            0%, 100% {
+                box-shadow: 0 0 12px 2px rgba(59, 130, 246, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.45);
+            }
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.7s ease-out forwards;
+            opacity: 0;
+        }
+
+        .title-text {
+            text-shadow: 0 2px 20px rgba(59, 130, 246, 0.4);
+        }
+        
+        .primary-btn {
+            background: rgba(59, 130, 246, 0.8);
+            border: 1px solid rgba(96, 165, 250, 0.7);
+            animation: subtle-glow 4s infinite ease-in-out;
+            transition: all 0.3s ease;
+        }
+
+        .primary-btn:hover {
+            transform: translateY(-2px) scale(1.03);
+            background: rgba(96, 165, 250, 1);
+            box-shadow: 0 0 25px 5px rgba(59, 130, 246, 0.6);
+        }
+
+        .secondary-btn {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(96, 165, 250, 0.5);
+            color: #a7d8ff;
+            transition: all 0.3s ease;
+        }
+        
+        .secondary-btn:hover {
+            background: rgba(96, 165, 250, 0.2);
+            border-color: rgba(96, 165, 250, 0.8);
+            color: white;
+        }
+
+        .server-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .server-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(96, 165, 250, 0.5);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.2);
+        }
+
+        .status-online {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: rgba(34, 197, 94, 0.5);
+            color: #4ade80;
+        }
+
+        .status-offline {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: #f87171;
+        }
+
+        .input-field {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            color: #e0e0e0;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            border-color: rgba(96, 165, 250, 0.8);
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+        }
+
+        .stats-card {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .loading-spinner {
+            border: 2px solid rgba(96, 165, 250, 0.3);
+            border-top: 2px solid #60a5fa;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .notification.success {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.5);
+            color: #4ade80;
+        }
+
+        .notification.error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: #f87171;
+        }
+
+        .notification.info {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            color: #60a5fa;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <canvas id="starfield-canvas" width="2560" height="877"></canvas>
+
+    <div class="main-content min-h-screen p-4">
+        <div class="max-w-7xl mx-auto">
+            
+            <!-- Заголовок -->
+            <div class="card-glass rounded-2xl shadow-2xl p-6 md:p-8 text-center mb-6 animate-fade-in">
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4 title-text">CS2 Tool</h1>
+                <p class="text-xl text-blue-200 mb-6">Анализатор и трекер серверов Counter-Strike 2</p>
+                
+                <div class="flex flex-wrap justify-center gap-4">
+                    <div class="stats-card rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="totalServers">0</div>
+                        <div class="text-sm text-blue-200">Всего серверов</div>
+                    </div>
+                    <div class="stats-card rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="onlineServers">0</div>
+                        <div class="text-sm text-blue-200">Онлайн</div>
+                    </div>
+                    <div class="stats-card rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="playersOnline">0</div>
+                        <div class="text-sm text-blue-200">Игроков онлайн</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Панель управления -->
+            <div class="card-glass rounded-2xl shadow-xl p-6 md:p-8 mb-6 animate-fade-in" style="animation-delay: 0.1s;">
+                <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-gear-fill mr-3 text-blue-400" viewBox="0 0 16 16">
+                        <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/>
+                    </svg>
+                    Панель управления
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- API Key Input -->
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-blue-200">Steam Web API Key</label>
+                        <input type="password" id="apiKey" placeholder="Введите ваш API ключ" 
+                               class="input-field w-full px-4 py-3 rounded-lg text-sm">
+                        <p class="text-xs text-gray-400">Ключ будет сохранен локально</p>
+                    </div>
+                    
+                    <!-- Scan Interval -->
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-blue-200">Интервал сканирования (сек)</label>
+                        <input type="number" id="scanInterval" value="30" min="10" max="300"
+                               class="input-field w-full px-4 py-3 rounded-lg text-sm">
+                    </div>
+                    
+                    <!-- Max Servers -->
+                    <div class="space-y-2">
+                        <label class="text-sm font-semibold text-blue-200">Максимум серверов</label>
+                        <input type="number" id="maxServers" value="100" min="10" max="1000"
+                               class="input-field w-full px-4 py-3 rounded-lg text-sm">
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap gap-4 mt-6">
+                    <button id="startScanBtn" class="primary-btn px-6 py-3 rounded-lg font-semibold text-white flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-play-fill mr-2" viewBox="0 0 16 16">
+                            <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+                        </svg>
+                        Начать сканирование
+                    </button>
+                    
+                    <button id="stopScanBtn" class="secondary-btn px-6 py-3 rounded-lg font-semibold flex items-center" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-stop-fill mr-2" viewBox="0 0 16 16">
+                            <path d="M5 3.5h6A.5.5 0 0 1 11.5 4v8a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z"/>
+                        </svg>
+                        Остановить
+                    </button>
+                    
+                    <button id="clearServersBtn" class="secondary-btn px-6 py-3 rounded-lg font-semibold flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-trash-fill mr-2" viewBox="0 0 16 16">
+                            <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z"/>
+                        </svg>
+                        Очистить список
+                    </button>
+                </div>
+            </div>
+
+            <!-- Список серверов -->
+            <div class="card-glass rounded-2xl shadow-xl p-6 md:p-8 animate-fade-in" style="animation-delay: 0.2s;">
+                <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-server mr-3 text-blue-400" viewBox="0 0 16 16">
+                        <path d="M1.333 2.667C1.333 1.194 4.318 0 8 0s6.667 1.194 6.667 2.667V4c0 1.473-2.985 2.667-6.667 2.667S1.333 5.473 1.333 4V2.667z"/>
+                        <path d="M1.333 6.334v3.666C1.333 11.473 4.318 12.667 8 12.667s6.667-1.194 6.667-2.667V6.334a12.695 12.695 0 0 1-1.458.61C11.81 7.548 9.967 8 8 8c-1.967 0-3.81-.452-5.21-1.056a12.695 12.695 0 0 1-1.457-.61z"/>
+                        <path d="M14.667 11.668a12.695 12.695 0 0 1-1.458.609c-1.4.604-3.243 1.056-5.21 1.056-1.967 0-3.81-.452-5.21-1.056a12.695 12.695 0 0 1-1.457-.61v1.666C1.333 14.806 4.318 16 8 16s6.667-1.194 6.667-2.667v-1.665z"/>
+                    </svg>
+                    Найденные серверы
+                </h2>
+                
+                <div id="serversList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Серверы будут добавляться здесь динамически -->
+                </div>
+                
+                <div id="noServers" class="text-center py-12 text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-server mx-auto mb-4 opacity-50" viewBox="0 0 16 16">
+                        <path d="M1.333 2.667C1.333 1.194 4.318 0 8 0s6.667 1.194 6.667 2.667V4c0 1.473-2.985 2.667-6.667 2.667S1.333 5.473 1.333 4V2.667z"/>
+                        <path d="M1.333 6.334v3.666C1.333 11.473 4.318 12.667 8 12.667s6.667-1.194 6.667-2.667V6.334a12.695 12.695 0 0 1-1.458.61C11.81 7.548 9.967 8 8 8c-1.967 0-3.81-.452-5.21-1.056a12.695 12.695 0 0 1-1.457-.61z"/>
+                        <path d="M14.667 11.668a12.695 12.695 0 0 1-1.458.609c-1.4.604-3.243 1.056-5.21 1.056-1.967 0-3.81-.452-5.21-1.056a12.695 12.695 0 0 1-1.457-.61v1.666C1.333 14.806 4.318 16 8 16s6.667-1.194 6.667-2.667v-1.665z"/>
+                    </svg>
+                    <p class="text-lg">Серверы не найдены</p>
+                    <p class="text-sm">Нажмите "Начать сканирование" для поиска серверов</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Контейнер для уведомлений -->
+    <div id="notificationsContainer"></div>
+
+    <script>
+        // --- Animated Starfield Background Script ---
+        const canvas = document.getElementById('starfield-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let stars = [];
+        let animationFrameId;
+
+        function createStar() {
+            return {
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                radius: Math.random() * 1.5 + 0.5,
+                alpha: Math.random(),
+                deltaAlpha: Math.random() * 0.02 - 0.01
+            };
+        }
+
+        function init() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            stars = [];
+            const numberOfStars = (canvas.width * canvas.height) / 8000;
+            for (let i = 0; i < numberOfStars; i++) {
+                stars.push(createStar());
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            animate();
+        }
+        
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            stars.forEach(star => {
+                star.alpha += star.deltaAlpha;
+                if (star.alpha <= 0 || star.alpha >= 1) {
+                    star.deltaAlpha = -star.deltaAlpha;
+                }
+                ctx.beginPath();
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(init, 100); 
+        });
+
+        init();
+
+        // --- CS2 Tool Application Logic ---
+        class CS2Tool {
+            constructor() {
+                this.servers = [];
+                this.isScanning = false;
+                this.scanInterval = null;
+                this.apiKey = localStorage.getItem('cs2_api_key') || '';
+                
+                this.initializeUI();
+                this.bindEvents();
+                this.loadSettings();
+            }
+
+            initializeUI() {
+                // Заполняем поля из сохраненных настроек
+                document.getElementById('apiKey').value = this.apiKey;
+                
+                // Обновляем статистику
+                this.updateStats();
+            }
+
+            bindEvents() {
+                document.getElementById('startScanBtn').addEventListener('click', () => this.startScan());
+                document.getElementById('stopScanBtn').addEventListener('click', () => this.stopScan());
+                document.getElementById('clearServersBtn').addEventListener('click', () => this.clearServers());
+                
+                // Сохраняем API ключ при изменении
+                document.getElementById('apiKey').addEventListener('input', (e) => {
+                    this.apiKey = e.target.value;
+                    localStorage.setItem('cs2_api_key', this.apiKey);
+                });
+            }
+
+            loadSettings() {
+                const savedInterval = localStorage.getItem('cs2_scan_interval');
+                const savedMaxServers = localStorage.getItem('cs2_max_servers');
+                
+                if (savedInterval) document.getElementById('scanInterval').value = savedInterval;
+                if (savedMaxServers) document.getElementById('maxServers').value = savedMaxServers;
+            }
+
+            startScan() {
+                if (!this.apiKey.trim()) {
+                    this.showNotification('Введите Steam Web API ключ', 'error');
+                    return;
+                }
+
+                this.isScanning = true;
+                this.updateScanButtons();
+                this.showNotification('Сканирование начато', 'info');
+
+                // Сохраняем настройки
+                const interval = document.getElementById('scanInterval').value;
+                const maxServers = document.getElementById('maxServers').value;
+                localStorage.setItem('cs2_scan_interval', interval);
+                localStorage.setItem('cs2_max_servers', maxServers);
+
+                // Имитация сканирования (здесь будет реальная логика)
+                this.simulateScan();
+            }
+
+            stopScan() {
+                this.isScanning = false;
+                this.updateScanButtons();
+                this.showNotification('Сканирование остановлено', 'info');
+                
+                if (this.scanInterval) {
+                    clearInterval(this.scanInterval);
+                    this.scanInterval = null;
+                }
+            }
+
+            clearServers() {
+                this.servers = [];
+                this.updateServersList();
+                this.updateStats();
+                this.showNotification('Список серверов очищен', 'info');
+            }
+
+            simulateScan() {
+                // Имитация поиска серверов
+                const mockServers = [
+                    {
+                        name: 'CS2 Community Server #1',
+                        ip: '192.168.1.100:27015',
+                        players: Math.floor(Math.random() * 32),
+                        maxPlayers: 32,
+                        map: 'de_dust2',
+                        status: 'online'
+                    },
+                    {
+                        name: 'Competitive Server',
+                        ip: '192.168.1.101:27015',
+                        players: Math.floor(Math.random() * 64),
+                        maxPlayers: 64,
+                        map: 'de_mirage',
+                        status: 'online'
+                    },
+                    {
+                        name: 'Casual Gaming',
+                        ip: '192.168.1.102:27015',
+                        players: Math.floor(Math.random() * 24),
+                        maxPlayers: 24,
+                        map: 'de_inferno',
+                        status: 'online'
+                    }
+                ];
+
+                // Добавляем случайные серверы
+                const newServer = mockServers[Math.floor(Math.random() * mockServers.length)];
+                if (!this.servers.find(s => s.ip === newServer.ip)) {
+                    this.servers.push(newServer);
+                    this.updateServersList();
+                    this.updateStats();
+                }
+
+                // Продолжаем сканирование
+                if (this.isScanning) {
+                    this.scanInterval = setTimeout(() => this.simulateScan(), 5000);
+                }
+            }
+
+            updateScanButtons() {
+                const startBtn = document.getElementById('startScanBtn');
+                const stopBtn = document.getElementById('stopScanBtn');
+                
+                if (this.isScanning) {
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    startBtn.innerHTML = `
+                        <div class="loading-spinner mr-2"></div>
+                        Сканирование...
+                    `;
+                } else {
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    startBtn.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-play-fill mr-2" viewBox="0 0 16 16">
+                            <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+                        </svg>
+                        Начать сканирование
+                    `;
+                }
+            }
+
+            updateServersList() {
+                const container = document.getElementById('serversList');
+                const noServers = document.getElementById('noServers');
+                
+                if (this.servers.length === 0) {
+                    container.style.display = 'none';
+                    noServers.style.display = 'block';
+                    return;
+                }
+                
+                container.style.display = 'grid';
+                noServers.style.display = 'none';
+                
+                container.innerHTML = this.servers.map(server => `
+                    <div class="server-card rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="font-semibold text-white text-sm">${server.name}</h3>
+                            <span class="status-${server.status} px-2 py-1 rounded-full text-xs font-medium">
+                                ${server.status === 'online' ? 'Онлайн' : 'Офлайн'}
+                            </span>
+                        </div>
+                        
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">IP:</span>
+                                <span class="text-blue-200 font-mono">${server.ip}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Игроки:</span>
+                                <span class="text-white">${server.players}/${server.maxPlayers}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Карта:</span>
+                                <span class="text-white">${server.map}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-2 mt-4">
+                            <button class="secondary-btn px-3 py-1 rounded text-xs flex-1" onclick="cs2Tool.connectToServer('${server.ip}')">
+                                Подключиться
+                            </button>
+                            <button class="secondary-btn px-3 py-1 rounded text-xs" onclick="cs2Tool.copyServerInfo('${server.ip}')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                                    <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            updateStats() {
+                const totalServers = this.servers.length;
+                const onlineServers = this.servers.filter(s => s.status === 'online').length;
+                const totalPlayers = this.servers.reduce((sum, s) => sum + s.players, 0);
+                
+                document.getElementById('totalServers').textContent = totalServers;
+                document.getElementById('onlineServers').textContent = onlineServers;
+                document.getElementById('playersOnline').textContent = totalPlayers;
+            }
+
+            connectToServer(ip) {
+                // Имитация подключения к серверу
+                this.showNotification(`Подключение к ${ip}...`, 'info');
+                setTimeout(() => {
+                    this.showNotification(`Подключение к ${ip} выполнено!`, 'success');
+                }, 2000);
+            }
+
+            copyServerInfo(ip) {
+                navigator.clipboard.writeText(ip).then(() => {
+                    this.showNotification('IP сервера скопирован в буфер обмена', 'success');
+                }).catch(() => {
+                    this.showNotification('Ошибка копирования', 'error');
+                });
+            }
+
+            showNotification(message, type = 'info') {
+                const container = document.getElementById('notificationsContainer');
+                const notification = document.createElement('div');
+                notification.className = `notification ${type} rounded-lg p-4 mb-2`;
+                notification.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="flex-1">${message}</span>
+                        <button onclick="this.parentElement.parentElement.remove()" class="ml-2 text-gray-400 hover:text-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                
+                container.appendChild(notification);
+                
+                // Автоматически удаляем через 5 секунд
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 5000);
+            }
+        }
+
+        // Инициализация приложения
+        const cs2Tool = new CS2Tool();
+    </script>
+
+</body>
+</html> 

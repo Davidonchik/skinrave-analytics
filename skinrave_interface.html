@@ -682,7 +682,7 @@
                             this.showNotification(progressText, 'info');
                             
                             // Пауза 1 секунда между запросами
-                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            await new Promise(resolve => setTimeout(resolve, 100));
                         } else {
                             // Если больше нет данных или достигнут totalCount, выходим из цикла
                             break;

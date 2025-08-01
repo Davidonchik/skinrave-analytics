@@ -666,32 +666,41 @@
                         }
                         
                         // Проверяем, нужно ли делать следующий запрос
-                        const remainingAccounts = totalCount - allPartners.length;
-                        const shouldContinue = remainingAccounts > 0 && allPartners.length < desiredLimit;
+                        // Если totalCount = -1, то продолжаем загружать пока есть данные и не достигнут лимит
+                        const shouldContinue = (totalCount === -1 || totalCount > allPartners.length) && 
+                                             data.list && data.list.length > 0 && 
+                                             allPartners.length < desiredLimit;
                         
                         if (shouldContinue) {
                             skip += take;
-                            console.log(`Осталось аккаунтов: ${remainingAccounts}. Делаем паузу 1 секунду...`);
+                            const remainingText = totalCount === -1 ? 'неизвестно' : (totalCount - allPartners.length);
+                            console.log(`Осталось аккаунтов: ${remainingText}. Делаем паузу 1 секунду...`);
                             
                             // Показываем прогресс пользователю
-                            this.showNotification(`Загружено ${allPartners.length} из ${Math.min(totalCount, desiredLimit)} аккаунтов...`, 'info');
+                            const progressText = totalCount === -1 ? 
+                                `Загружено ${allPartners.length} аккаунтов...` : 
+                                `Загружено ${allPartners.length} из ${Math.min(totalCount, desiredLimit)} аккаунтов...`;
+                            this.showNotification(progressText, 'info');
                             
                             // Пауза 1 секунда между запросами
                             await new Promise(resolve => setTimeout(resolve, 1000));
                         }
                         
-                    } while (allPartners.length < totalCount && allPartners.length < desiredLimit);
+                    } while ((totalCount === -1 || allPartners.length < totalCount) && allPartners.length < desiredLimit);
                     
                     console.log(`Загрузка завершена. Всего загружено: ${allPartners.length} аккаунтов`);
                     
                     // Создаем финальный объект данных
                     const finalData = {
-                        totalCount: totalCount,
+                        totalCount: allPartners.length, // Используем реальное количество загруженных аккаунтов
                         list: allPartners.slice(0, desiredLimit) // Ограничиваем желаемым лимитом
                     };
                     
                     this.displayData(finalData);
-                    this.showNotification(`Данные успешно загружены! Загружено ${finalData.list.length} аккаунтов из ${totalCount}`, 'success');
+                    const successText = totalCount === -1 ? 
+                        `Данные успешно загружены! Загружено ${finalData.list.length} аккаунтов` : 
+                        `Данные успешно загружены! Загружено ${finalData.list.length} аккаунтов из ${totalCount}`;
+                    this.showNotification(successText, 'success');
                     
                 } catch (error) {
                     console.error('Ошибка загрузки данных:', error);

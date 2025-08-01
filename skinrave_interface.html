@@ -666,10 +666,9 @@
                         }
                         
                         // Проверяем, нужно ли делать следующий запрос
-                        // Если totalCount = -1, то продолжаем загружать пока есть данные и не достигнут лимит
-                        const shouldContinue = (totalCount === -1 || totalCount > allPartners.length) && 
-                                             data.list && data.list.length > 0 && 
-                                             allPartners.length < desiredLimit;
+                        // Продолжаем загружать пока API возвращает данные и не достигнут известный totalCount
+                        const shouldContinue = (totalCount === -1 && data.list && data.list.length > 0) || 
+                                             (totalCount !== -1 && allPartners.length < totalCount && data.list && data.list.length > 0);
                         
                         if (shouldContinue) {
                             skip += take;
@@ -679,14 +678,17 @@
                             // Показываем прогресс пользователю
                             const progressText = totalCount === -1 ? 
                                 `Загружено ${allPartners.length} аккаунтов...` : 
-                                `Загружено ${allPartners.length} из ${Math.min(totalCount, desiredLimit)} аккаунтов...`;
+                                `Загружено ${allPartners.length} из ${totalCount} аккаунтов...`;
                             this.showNotification(progressText, 'info');
                             
                             // Пауза 1 секунда между запросами
                             await new Promise(resolve => setTimeout(resolve, 1000));
+                        } else {
+                            // Если больше нет данных или достигнут totalCount, выходим из цикла
+                            break;
                         }
                         
-                    } while ((totalCount === -1 || allPartners.length < totalCount) && allPartners.length < desiredLimit);
+                    } while (true);
                     
                     console.log(`Загрузка завершена. Всего загружено: ${allPartners.length} аккаунтов`);
                     

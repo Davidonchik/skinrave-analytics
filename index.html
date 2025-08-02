@@ -548,13 +548,27 @@
         // --- SkinRave Analytics Application Logic ---
         class SkinRaveAnalytics {
             constructor() {
-                this.partners = [];
                 this.apiToken = '6d7e6932-b0de-4df2-b523-f778ffb9b958'; // Automatically sets the token
                 this.baseUrl = 'https://corsproxy.io/?https://api.skinrave.gg/affiliates/public/applicants';
+                this.partners = [];
+                this.isLoading = false;
+                this.isDataLoading = false; // Новый флаг для предотвращения множественных вызовов
                 
+                this.init();
+            }
+
+            init() {
                 this.initializeUI();
-                this.bindEvents();
                 this.loadSettings();
+                this.bindEvents();
+                this.updateStats();
+                
+                // Автоматически загружаем данные при открытии страницы
+                setTimeout(() => {
+                    if (!this.isDataLoading) { // Проверяем, не загружаются ли уже данные
+                        this.loadData();
+                    }
+                }, 1000);
             }
 
             initializeUI() {
@@ -615,7 +629,14 @@
 
 
             async loadData() {
+                // Предотвращаем множественные одновременные вызовы
+                if (this.isDataLoading) {
+                    console.log('DEBUG: loadData уже выполняется, игнорируем новый вызов');
+                    return;
+                }
+                
                 try {
+                    this.isDataLoading = true; // Устанавливаем флаг
                     this.showLoading(true);
                     this.isLoading = true; // Флаг для возможности отмены
                     
@@ -630,14 +651,19 @@
                     let totalCount = 0;
                     let requestCount = 0;
                     
+                    console.log(`=== НАЧАЛО ЗАГРУЗКИ ДАННЫХ ===`);
                     console.log(`Начинаем загрузку данных. Желаемый лимит: ${desiredLimit}`);
+                    console.log(`DEBUG: Начинаем do...while цикл`);
                     
                     do {
                         requestCount++;
+                        console.log(`\n=== ЗАПРОС #${requestCount} ===`);
                         console.log(`Запрос #${requestCount}: skip=${skip}, take=${take}`);
                         
-                        const apiUrl = `https://api.skinrave.gg/affiliates/public/applicants?token=${this.apiToken}&skip=${skip}&take=${take}&order=DESC&from=${fromDate}&to=${toDate}`;
+                        const apiUrl = `https://api.skinrave.gg/affiliates/public/applicants?token=${this.apiToken}&skip=${skip}&take=${take}&orderBy=id&order=DESC&from=${fromDate}&to=${toDate}`;
                         const url = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
+                        
+                        console.log(`DEBUG: Отправляем запрос на: ${apiUrl}`);
                         
                         const response = await fetch(url, {
                             method: 'GET',
@@ -652,12 +678,21 @@
                         }
                         
                         const data = await response.json();
+                        console.log(`\n=== ОТВЕТ НА ЗАПРОС #${requestCount} ===`);
                         console.log(`Запрос #${requestCount} получен:`, data);
+                        console.log(`DEBUG: data.list.length = ${data.list ? data.list.length : 'null'}`);
+                        console.log(`DEBUG: data.totalCount = ${data.totalCount}`);
                         
                         // Обновляем общее количество только при первом запросе
                         if (requestCount === 1) {
                             totalCount = data.totalCount || 0;
                             console.log(`Общее количество аккаунтов: ${totalCount}`);
+                            
+                            // Если первый запрос вернул пустой список, выходим сразу
+                            if (!data.list || data.list.length === 0) {
+                                console.log('Первый запрос вернул пустой список. Завершаем загрузку.');
+                                break;
+                            }
                         }
                         
                         // Добавляем полученные данные к общему списку
@@ -667,13 +702,21 @@
                         }
                         
                         // Проверяем, нужно ли делать следующий запрос
-                        const shouldContinue = (totalCount === -1 && data.list && data.list.length > 0) || 
-                                             (totalCount !== -1 && allPartners.length < totalCount && data.list && data.list.length > 0);
+                        // Игнорируем totalCount, смотрим только на количество полученных записей
+                        // Если получили меньше записей чем take, значит данных больше нет
+                        const shouldContinue = data.list && data.list.length > 0 && data.list.length === take;
+                        
+                        console.log(`\n=== ПРОВЕРКА УСЛОВИЙ ПРОДОЛЖЕНИЯ ===`);
+                        console.log(`DEBUG: data.list.length=${data.list ? data.list.length : 'null'}, take=${take}, shouldContinue=${shouldContinue}`);
+                        console.log(`DEBUG: Условие 1 (data.list): ${data.list ? 'true' : 'false'}`);
+                        console.log(`DEBUG: Условие 2 (data.list.length > 0): ${data.list && data.list.length > 0 ? 'true' : 'false'}`);
+                        console.log(`DEBUG: Условие 3 (data.list.length === take): ${data.list && data.list.length === take ? 'true' : 'false'}`);
                         
                         if (shouldContinue) {
                             skip += take;
                             const remainingText = totalCount === -1 ? 'неизвестно' : (totalCount - allPartners.length);
-                            console.log(`Осталось аккаунтов: ${remainingText}. Делаем паузу 1 секунду...`);
+                            console.log(`\n=== ПРОДОЛЖАЕМ ЗАГРУЗКУ ===`);
+                            console.log(`Осталось аккаунтов: ${remainingText}. Делаем следующий запрос сразу...`);
                             
                             // Показываем прогресс пользователю
                             const progressText = totalCount === -1 ? 
@@ -681,26 +724,48 @@
                                 `Загружено ${allPartners.length} из ${totalCount} аккаунтов...`;
                             this.showNotification(progressText, 'info');
                             
-                            // Пауза 1 секунда между запросами
-                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            // Делаем следующий запрос сразу без паузы
                         } else {
-                            // Если больше нет данных или достигнут totalCount, выходим из цикла
+                            // Если получили меньше записей чем take, значит данных больше нет
+                            console.log(`\n=== ЗАВЕРШАЕМ ЗАГРУЗКУ ===`);
+                            console.log(`Загрузка завершена. Получено ${data.list ? data.list.length : 0} записей (меньше чем take=${take}), данных больше нет`);
+                            console.log(`DEBUG: Выходим из цикла, shouldContinue=${shouldContinue}`);
+                            console.log(`DEBUG: Выполняем break - выходим из do...while цикла`);
                             break;
                         }
                         
                     } while (true);
                     
+                    console.log(`\n=== ВЫШЛИ ИЗ ЦИКЛА ЗАГРУЗКИ ===`);
+                    console.log(`DEBUG: Вышли из do...while цикла`);
+                    
                     console.log(`Загрузка завершена. Всего загружено: ${allPartners.length} аккаунтов`);
                     
-                    // Сортируем аккаунты так, чтобы новые были первыми (reverse массива)
-                    // Поскольку API возвращает skip=0 как старые, skip=30 как новые
-                    allPartners.reverse();
+                    // Сортируем аккаунты по ID в порядке убывания (новые первыми)
+                    // Более высокий ID = более новый аккаунт
+                    console.log(`\n=== НАЧИНАЕМ СОРТИРОВКУ ===`);
+                    console.log('Начинаем сортировку аккаунтов по ID...');
+                    console.log(`Всего аккаунтов для сортировки: ${allPartners.length}`);
+                    
+                    // Показываем все ID до сортировки для отладки
+                    console.log('Все ID до сортировки:', allPartners.map(p => p.user.id));
+                    console.log('Первые 10 ID до сортировки:', allPartners.slice(0, 10).map(p => p.user.id));
+                    
+                    allPartners.sort((a, b) => b.user.id - a.user.id);
+                    
+                    // Показываем все ID после сортировки для отладки
+                    console.log('Все ID после сортировки:', allPartners.map(p => p.user.id));
+                    console.log('Первые 10 ID после сортировки:', allPartners.slice(0, 10).map(p => p.user.id));
+                    console.log(`Сортировка применена ко ВСЕМ ${allPartners.length} аккаунтам`);
                     
                     // Создаем финальный объект данных
                     const finalData = {
                         totalCount: allPartners.length, // Используем реальное количество загруженных аккаунтов
                         list: allPartners.slice(0, desiredLimit) // Ограничиваем желаемым лимитом
                     };
+                    
+                    console.log(`\n=== ОТОБРАЖАЕМ ДАННЫЕ ===`);
+                    console.log(`Финальные данные: ${finalData.list.length} аккаунтов из ${allPartners.length} загруженных`);
                     
                     this.displayData(finalData);
                     const successText = totalCount === -1 ? 
@@ -714,6 +779,8 @@
                 } finally {
                     this.showLoading(false);
                     this.isLoading = false;
+                    this.isDataLoading = false; // Сбрасываем флаг
+                    console.log(`\n=== ЗАГРУЗКА ЗАВЕРШЕНА ===`);
                 }
             }
 
